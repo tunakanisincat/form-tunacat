@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>アンケート</title>
+  <style>
+    :root {
+      --primary-color: #4f46e5;
+      --bg-color: #f3f4f6;
+      --card-bg: #ffffff;
+      --text-main: #1f2937;
+      --text-muted: #6b7280;
+      --border-color: #e5e7eb;
+      --radius: 16px;
+      --transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+
+    body {
+      background-color: var(--bg-color);
+      color: var(--text-main);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      padding: 20px;
+      overflow-x: hidden;
+    }
+
+    .survey-container {
+      background: var(--card-bg);
+      width: 100%;
+      max-width: 500px;
+      padding: 32px;
+      border-radius: var(--radius);
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.01);
+      position: relative;
+    }
+
+    /* プログレスバー */
+    .progress-bar-container {
+      width: 100%;
+      height: 6px;
+      background: var(--border-color);
+      border-radius: 3px;
+      margin-bottom: 24px;
+      overflow: hidden;
+    }
+
+    .progress-bar {
+      height: 100%;
+      background: var(--primary-color);
+      width: 0%;
+      transition: width 0.4s ease;
+    }
+
+    /* 質問カードアニメーション */
+    .card-wrapper {
+      position: relative;
+      min-height: 250px;
+    }
+
+    .card {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      opacity: 0;
+      transform: translateX(30px) scale(0.98);
+      pointer-events: none;
+      transition: var(--transition);
+    }
+
+    .card.active {
+      opacity: 1;
+      transform: translateX(0) scale(1);
+      pointer-events: auto;
+      position: relative;
+    }
+
+    .card.exit {
+      opacity: 0;
+      transform: translateX(-30px) scale(0.98);
+      pointer-events: none;
+    }
+
+    .question-title {
+      font-size: 1.25rem;
+      font-weight: 600;
+      margin-bottom: 20px;
+      line-height: 1.4;
+    }
+
+    /* UI要素 */
+    .options-container {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .option-btn {
+      padding: 14px 18px;
+      border: 2px solid var(--border-color);
+      border-radius: 10px;
+      background: transparent;
+      color: var(--text-main);
+      font-size: 1rem;
+      text-align: left;
+      cursor: pointer;
+      transition: var(--transition);
+    }
+
+    .option-btn:hover {
+      border-color: var(--primary-color);
+      background-color: rgba(0, 0, 0, 0.02);
+    }
+
+    .option-btn.selected {
+      border-color: var(--primary-color);
+      background-color: var(--primary-color);
+      color: white;
+    }
+
+    .text-input {
+      width: 100%;
+      padding: 14px;
+      border: 2px solid var(--border-color);
+      border-radius: 10px;
+      font-size: 1rem;
+      outline: none;
+      transition: var(--transition);
+    }
+
+    .text-input:focus {
+      border-color: var(--primary-color);
+    }
+
+    .controls {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 28px;
+    }
+
+    .btn {
+      padding: 10px 20px;
+      border-radius: 8px;
+      border: none;
+      font-weight: 600;
+      cursor: pointer;
+      transition: var(--transition);
+    }
+
+    .btn-secondary {
+      background: transparent;
+      color: var(--text-muted);
+    }
+
+    .btn-secondary:hover {
+      color: var(--text-main);
+    }
+
+    .btn-primary {
+      background: var(--primary-color);
+      color: white;
+    }
+
+    .btn-primary:hover {
+      opacity: 0.9;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="survey-container">
+    <div class="progress-bar-container">
+      <div class="progress-bar" id="progressBar"></div>
+    </div>
+
+    <div class="card-wrapper" id="cardWrapper">
+      <!-- カードがJSにより動的生成されます -->
+    </div>
+
+    <div class="controls" id="controls">
+      <button class="btn btn-secondary" id="prevBtn">戻る</button>
+      <button class="btn btn-primary" id="nextBtn">次へ</button>
+    </div>
+  </div>
+
+  <!-- config.js の読み込み -->
+  <script src="config.js"></script>
+
+  <script>
+    let currentStep = 0;
+    const answers = {};
+
+    // テーマカラー適用
+    if (CONFIG.themeColor) {
+      document.documentElement.style.setProperty('--primary-color', CONFIG.themeColor);
+    }
+
+    const cardWrapper = document.getElementById('cardWrapper');
+    const progressBar = document.getElementById('progressBar');
+    const prevBtn = document.getElementById('prevBtn');
+    const nextBtn = document.getElementById('nextBtn');
+    const controls = document.getElementById('controls');
+
+    // 初期化
+    function initSurvey() {
+      CONFIG.questions.forEach((q, index) => {
+        const card = document.createElement('div');
+        card.className = `card ${index === 0 ? 'active' : ''}`;
+        card.dataset.index = index;
+
+        let content = `<h2 class="question-title">${q.title}</h2>`;
+
+        if (q.type === 'choice') {
+          content += `<div class="options-container">`;
+          q.options.forEach(opt => {
+            content += `<button class="option-btn" onclick="selectOption('${q.id}', '${opt}', this)">${opt}</button>`;
+          });
+          content += `</div>`;
+        } else if (q.type === 'text') {
+          content += `<input type="text" class="text-input" placeholder="${q.placeholder || ''}" oninput="handleTextInput('${q.id}', this.value)">`;
+        }
+
+        card.innerHTML = content;
+        cardWrapper.appendChild(card);
+      });
+
+      // 完了・送信中画面
+      const completeCard = document.createElement('div');
+      completeCard.className = 'card';
+      completeCard.dataset.index = CONFIG.questions.length;
+      completeCard.id = 'completeCard';
+      completeCard.innerHTML = `
+        <div style="text-align: center; padding: 20px 0;" id="statusMessage">
+          <h2 class="question-title">送信中...</h2>
+          <p style="color: var(--text-muted);">回答を送信しています。少々お待ちください。</p>
+        </div>
+      `;
+      cardWrapper.appendChild(completeCard);
+
+      updateUI();
+    }
+
+    // 選択肢のクリック処理
+    window.selectOption = (questionId, value, btnElement) => {
+      answers[questionId] = value;
+      const parent = btnElement.parentElement;
+      parent.querySelectorAll('.option-btn').forEach(btn => btn.classList.remove('selected'));
+      btnElement.classList.add('selected');
+
+      nextStep();
+    };
+
+    // テキスト入力の処理
+    window.handleTextInput = (questionId, value) => {
+      answers[questionId] = value;
+    };
+
+    // UIの更新
+    function updateUI() {
+      const total = CONFIG.questions.length;
+      const progress = (currentStep / total) * 100;
+      progressBar.style.width = `${Math.min(progress, 100)}%`;
+
+      prevBtn.style.visibility = (currentStep === 0 || currentStep === total) ? 'hidden' : 'visible';
+
+      if (currentStep === total - 1) {
+        nextBtn.textContent = '送信';
+      } else {
+        nextBtn.textContent = '次へ';
+      }
+
+      if (currentStep === total) {
+        controls.classList.add('hidden');
+      }
+    }
+
+    // ステップ遷移アニメーション
+    function changeStep(newStep) {
+      const cards = cardWrapper.querySelectorAll('.card');
+      const currentCard = cards[currentStep];
+      const nextCard = cards[newStep];
+
+      currentCard.classList.remove('active');
+      currentCard.classList.add('exit');
+
+      setTimeout(() => {
+        currentCard.classList.remove('exit');
+        nextCard.classList.add('active');
+        currentStep = newStep;
+        updateUI();
+
+        // 最終ステップ（完了画面）に達したらWebhook送信
+        if (currentStep === CONFIG.questions.length) {
+          sendToDiscord(answers);
+        }
+      }, 200);
+    }
+
+    function nextStep() {
+      if (currentStep < CONFIG.questions.length) {
+        changeStep(currentStep + 1);
+      }
+    }
+
+    function prevStep() {
+      if (currentStep > 0) {
+        changeStep(currentStep - 1);
+      }
+    }
+
+    // Discord Webhook 送信処理 (Embed形式で綺麗に整形)
+    async function sendToDiscord(data) {
+      const statusMessage = document.getElementById('statusMessage');
+
+      const fields = CONFIG.questions.map(q => ({
+        name: q.title,
+        value: data[q.id] && data[q.id].trim() !== "" ? data[q.id] : "（未回答）",
+        inline: false
+      }));
+
+      const payload = {
+        embeds: [{
+          title: `📝 ${CONFIG.title || "新しいアンケート回答しましたよ　あほが"}`,
+          color: parseInt((CONFIG.themeColor || "#5865F2").replace("#", ""), 16),
+          fields: fields,
+          timestamp: new Date().toISOString()
+        }]
+      };
+
+      try {
+        const response = await fetch(CONFIG.webhookUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+
+        if (response.ok) {
+          statusMessage.innerHTML = `
+            <h2 class="question-title">ご回答ありがとうございました！</h2>
+            <p style="color: var(--text-muted);">回答が正常に送信されました。</p>
+          `;
+        } else {
+          throw new Error("送信エラー");
+        }
+      } catch (error) {
+        console.error("Webhook Error:", error);
+        statusMessage.innerHTML = `
+          <h2 class="question-title" style="color: #ef4444;">送信失敗</h2>
+          <p style="color: var(--text-muted);">送信中にエラーが発生しました。<br>通信環境を確認の上、再度お試しください。</p>
+        `;
+      }
+    }
+
+    nextBtn.addEventListener('click', nextStep);
+    prevBtn.addEventListener('click', prevStep);
+
+    initSurvey();
+  </script>
+</body>
+</html>
