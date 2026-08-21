@@ -1,6 +1,6 @@
 const CONFIG = {
   title: "アンケートフォーム",
-  themeColor: "#5865F2", // Discord風のパープル（お好みで変更可能）
+  themeColor: "#5865F2", 
   
   // 指定のDiscord Webhook URL
   webhookUrl: "https://discord.com/api/webhooks/1539928180499161088/CBAQtyLVpGCwvsMYOjArmDnlhi3KLuqeXkYjEm5S5B2l6v9ZVreZ8dap4VP0YHCMjpGl",
