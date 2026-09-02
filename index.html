@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>アンケート</title>
+  <title>Interactive Survey</title>
   <style>
     :root {
       --primary-color: #4f46e5;
@@ -61,7 +61,7 @@
       transition: width 0.4s ease;
     }
 
-    /* 質問カードアニメーション */
+    /* 質問カードとアニメーション */
     .card-wrapper {
       position: relative;
       min-height: 250px;
@@ -91,6 +91,15 @@
       pointer-events: none;
     }
 
+    /* 画像スタイル */
+    .question-image {
+      width: 100%;
+      max-height: 200px;
+      object-fit: cover;
+      border-radius: 10px;
+      margin-bottom: 16px;
+    }
+
     .question-title {
       font-size: 1.25rem;
       font-weight: 600;
@@ -98,7 +107,7 @@
       line-height: 1.4;
     }
 
-    /* UI要素 */
+    /* 入力要素スタイル */
     .options-container {
       display: flex;
       flex-direction: column;
@@ -119,7 +128,7 @@
 
     .option-btn:hover {
       border-color: var(--primary-color);
-      background-color: rgba(0, 0, 0, 0.02);
+      background-color: rgba(79, 70, 229, 0.04);
     }
 
     .option-btn.selected {
@@ -142,6 +151,7 @@
       border-color: var(--primary-color);
     }
 
+    /* コントロールボタン */
     .controls {
       display: flex;
       justify-content: space-between;
@@ -175,6 +185,11 @@
       opacity: 0.9;
     }
 
+    .btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
     .hidden {
       display: none !important;
     }
@@ -187,9 +202,7 @@
       <div class="progress-bar" id="progressBar"></div>
     </div>
 
-    <div class="card-wrapper" id="cardWrapper">
-      <!-- カードがJSにより動的生成されます -->
-    </div>
+    <div class="card-wrapper" id="cardWrapper"></div>
 
     <div class="controls" id="controls">
       <button class="btn btn-secondary" id="prevBtn">戻る</button>
@@ -197,17 +210,15 @@
     </div>
   </div>
 
-  <!-- config.js の読み込み -->
+  <!-- 設定ファイルの読み込み -->
   <script src="config.js"></script>
 
   <script>
     let currentStep = 0;
     const answers = {};
 
-    // テーマカラー適用
-    if (CONFIG.themeColor) {
-      document.documentElement.style.setProperty('--primary-color', CONFIG.themeColor);
-    }
+    // テーマカラー設定
+    document.documentElement.style.setProperty('--primary-color', CONFIG.themeColor || '#4f46e5');
 
     const cardWrapper = document.getElementById('cardWrapper');
     const progressBar = document.getElementById('progressBar');
@@ -222,7 +233,14 @@
         card.className = `card ${index === 0 ? 'active' : ''}`;
         card.dataset.index = index;
 
-        let content = `<h2 class="question-title">${q.title}</h2>`;
+        let content = '';
+
+        // 画像の埋め込み処理
+        if (q.image) {
+          content += `<img src="${q.image}" class="question-image" alt="Question Image">`;
+        }
+
+        content += `<h2 class="question-title">${q.title}</h2>`;
 
         if (q.type === 'choice') {
           content += `<div class="options-container">`;
@@ -238,15 +256,14 @@
         cardWrapper.appendChild(card);
       });
 
-      // 完了・送信中画面
+      // 完了画面カードの追加
       const completeCard = document.createElement('div');
       completeCard.className = 'card';
       completeCard.dataset.index = CONFIG.questions.length;
-      completeCard.id = 'completeCard';
       completeCard.innerHTML = `
-        <div style="text-align: center; padding: 20px 0;" id="statusMessage">
-          <h2 class="question-title">送信中...</h2>
-          <p style="color: var(--text-muted);">回答を送信しています。少々お待ちください。</p>
+        <div style="text-align: center; padding: 20px 0;" id="statusContainer">
+          <h2 class="question-title" id="statusTitle">送信中...</h2>
+          <p style="color: var(--text-muted);" id="statusText">回答データを送信しています。</p>
         </div>
       `;
       cardWrapper.appendChild(completeCard);
@@ -254,9 +271,10 @@
       updateUI();
     }
 
-    // 選択肢のクリック処理
+    // 選択肢クリック時
     window.selectOption = (questionId, value, btnElement) => {
       answers[questionId] = value;
+      
       const parent = btnElement.parentElement;
       parent.querySelectorAll('.option-btn').forEach(btn => btn.classList.remove('selected'));
       btnElement.classList.add('selected');
@@ -264,18 +282,19 @@
       nextStep();
     };
 
-    // テキスト入力の処理
+    // テキスト入力時
     window.handleTextInput = (questionId, value) => {
       answers[questionId] = value;
     };
 
-    // UIの更新
+    // UI状態の更新
     function updateUI() {
       const total = CONFIG.questions.length;
+      
       const progress = (currentStep / total) * 100;
       progressBar.style.width = `${Math.min(progress, 100)}%`;
 
-      prevBtn.style.visibility = (currentStep === 0 || currentStep === total) ? 'hidden' : 'visible';
+      prevBtn.style.visibility = currentStep === 0 || currentStep === total ? 'hidden' : 'visible';
 
       if (currentStep === total - 1) {
         nextBtn.textContent = '送信';
@@ -288,7 +307,7 @@
       }
     }
 
-    // ステップ遷移アニメーション
+    // ステップ切り替え
     function changeStep(newStep) {
       const cards = cardWrapper.querySelectorAll('.card');
       const currentCard = cards[currentStep];
@@ -303,9 +322,9 @@
         currentStep = newStep;
         updateUI();
 
-        // 最終ステップ（完了画面）に達したらWebhook送信
+        // 完了画面に到達したらDiscordへ送信
         if (currentStep === CONFIG.questions.length) {
-          sendToDiscord(answers);
+          sendToDiscord();
         }
       }, 200);
     }
@@ -322,52 +341,47 @@
       }
     }
 
-    // Discord Webhook 送信処理 (Embed形式で綺麗に整形)
-    async function sendToDiscord(data) {
-      const statusMessage = document.getElementById('statusMessage');
-
+    // Discord Webhookへ送信処理
+    async function sendToDiscord() {
       const fields = CONFIG.questions.map(q => ({
         name: q.title,
-        value: data[q.id] && data[q.id].trim() !== "" ? data[q.id] : "（未回答）",
+        value: answers[q.id] || "（未回答）",
         inline: false
       }));
 
       const payload = {
         embeds: [{
-          title: `📝 ${CONFIG.title || "新しいアンケート回答しましたよ　あほが"}`,
-          color: parseInt((CONFIG.themeColor || "#5865F2").replace("#", ""), 16),
+          title: `📝 ${CONFIG.title || 'アンケート回答'}`,
+          color: parseInt((CONFIG.themeColor || '#4f46e5').replace('#', ''), 16),
           fields: fields,
           timestamp: new Date().toISOString()
         }]
       };
 
       try {
-        const response = await fetch(CONFIG.webhookUrl, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
+        const res = await fetch(CONFIG.webhookUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
         });
 
-        if (response.ok) {
-          statusMessage.innerHTML = `
-            <h2 class="question-title">ご回答ありがとうございました！</h2>
-            <p style="color: var(--text-muted);">回答が正常に送信されました。</p>
-          `;
+        if (res.ok) {
+          document.getElementById('statusTitle').textContent = "回答ありがとうございました！";
+          document.getElementById('statusText').textContent = "送信が完了しました。";
         } else {
-          throw new Error("送信エラー");
+          throw new Error('送信エラー');
         }
-      } catch (error) {
-        console.error("Webhook Error:", error);
-        statusMessage.innerHTML = `
-          <h2 class="question-title" style="color: #ef4444;">送信失敗</h2>
-          <p style="color: var(--text-muted);">送信中にエラーが発生しました。<br>通信環境を確認の上、再度お試しください。</p>
-        `;
+      } catch (err) {
+        document.getElementById('statusTitle').textContent = "送信に失敗しました";
+        document.getElementById('statusText').textContent = "通信状況を確認のうえ、再度お試しください。";
       }
     }
 
+    // イベントリスナー
     nextBtn.addEventListener('click', nextStep);
     prevBtn.addEventListener('click', prevStep);
 
+    // 初期化実行
     initSurvey();
   </script>
 </body>
