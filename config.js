@@ -10,35 +10,35 @@ const CONFIG = {
       id: "q1",
       type: "text", // 'choice' または 'text'
       title: "名前を入力してください",
-      image: null,
+      image: "https://files.catbox.moe/tjj2vj.jpeg",
       placeholder: "例：山田 尾場三"
     },
     {
       id: "q2",
       type: "text", // 'choice' または 'text'
       title: "相手を傷つけてしまう言葉には、どんなものがありますか？",
-          image: null,
+      image: "https://files.catbox.moe/tjj2vj.jpeg",
       placeholder: "入力して"
     },
     {
       id: "q3",
       type: "text", // 'choice' または 'text'
       title: "それを使いたくなるのは、どんな時ですか？",
-      image: null,
+      image: "https://files.catbox.moe/tjj2vj.jpeg",
       placeholder: "入力して"
     },
       {
       id: "q4",
       type: "text", // 'choice' または 'text'
       title: "それを減らしていくために、どんな方法がありますか？",
-      image: null,
+      image: "https://files.catbox.moe/tjj2vj.jpeg",
       placeholder: "入力して"
     },
       {
       id: "q5",
       type: "text", // 'choice' または 'text'
       title: "それを聞いたとき、どんな気持ちになりますか？",
-      image: null,
+      image: "https://files.catbox.moe/tjj2vj.jpeg",
       placeholder: "入力して"
     },
   ]
